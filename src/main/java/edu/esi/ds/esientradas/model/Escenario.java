@@ -3,6 +3,8 @@ package edu.esi.ds.esientradas.model;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -10,12 +12,12 @@ import jakarta.persistence.OneToMany;
 
 @Entity
 public class Escenario {
-    @Id @GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY) //Dice que el ID es autoincremental
     private Long id;
     private String nombre;
     private String descripcion;
     
-    @OneToMany(mappedBy = "escenario")
+    @OneToMany(mappedBy = "escenario") //Crea una clave ajena para espectaculo que apunta a escenario
     private List<Espectaculo> espectaculos = new ArrayList<>();
 
     public Long getId() {
@@ -42,6 +44,7 @@ public class Escenario {
         this.descripcion = descripcion;
     }
 
+    @JsonIgnore
     public List<Espectaculo> getEspectaculos() {
         return espectaculos;
     }

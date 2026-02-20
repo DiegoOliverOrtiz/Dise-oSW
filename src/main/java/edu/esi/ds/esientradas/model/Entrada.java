@@ -1,5 +1,7 @@
 package edu.esi.ds.esientradas.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -31,12 +33,15 @@ public abstract class Entrada {
     public void setId(Long id) {
         this.id = id;
     }
+
+    @JsonIgnore //No me devuelve en el json los espectaculos, para evitar bucles infinitos
     public Espectaculo getEspectaculo() {
         return espectaculo;
     }
     public void setEspectaculo(Espectaculo espectaculo) {
         this.espectaculo = espectaculo;
     }
+
     public Estado getEstado() {
         return estado;
     }

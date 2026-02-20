@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -52,6 +54,7 @@ public class Espectaculo {
         this.fecha = fecha;
     }
 
+    @JsonIgnore
     public Escenario getEscenario() {
         return escenario;
     }
@@ -59,7 +62,7 @@ public class Espectaculo {
     public void setEscenario(Escenario escenario) {
         this.escenario = escenario;
     }
-
+    @JsonIgnore
     public List<Entrada> getEntradas() {
         return entradas;
     }
