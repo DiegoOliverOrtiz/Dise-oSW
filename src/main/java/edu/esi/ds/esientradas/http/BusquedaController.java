@@ -42,9 +42,8 @@ public class BusquedaController {
     }
 
     @GetMapping("/getEntradas")
-    public List<Entrada> getEntradas(@RequestParam String espectaculoId) {
-        //Por hacer
-        return null;
+    public List<Entrada> getEntradas(@RequestParam Long espectaculoId) {
+        return this.service.getEntradas(espectaculoId);
     }
 
     @GetMapping("/saludar/{nombre}")
