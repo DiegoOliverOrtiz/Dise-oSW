@@ -3,6 +3,7 @@ package edu.esi.ds.esientradas.http;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +19,7 @@ import edu.esi.ds.esientradas.services.BusquedaService;
 
 @RestController
 @RequestMapping("/busqueda")
+@CrossOrigin(origins="*")
 public class BusquedaController {
 
     @Autowired //Cuando arranca el servicio en esta clase lo crea, si lo encuentra en otro lado no lo hace
@@ -36,6 +38,21 @@ public class BusquedaController {
         }).toList();
         return dtos;
     }
+    
+    @GetMapping("/getEspectaculos/{idEscenario}")
+    public List<DtoEspectaculo> getEspectaculos(@PathVariable Long idEscenario) {
+        List<Espectaculo> espectaculos = this.service.getEspectaculos(idEscenario);
+        List<DtoEspectaculo> dtos = espectaculos.stream().map(e -> {
+            DtoEspectaculo dto = new DtoEspectaculo();
+            dto.setId(e.getId());
+            dto.setArtista(e.getArtista());
+            dto.setFecha(e.getFecha());
+            dto.setEscenario(e.getEscenario().getNombre());
+            return dto;
+        }).toList();
+        return dtos;
+    }
+
     @GetMapping("/getEscenarios")
     public List<Escenario> getEscenarios() {
         return this.service.getEscenarios();

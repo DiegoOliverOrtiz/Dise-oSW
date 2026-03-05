@@ -19,7 +19,7 @@ public class ReservasController {
     
     @PutMapping("/reservar")
     public Long reservar(HttpSession session, @RequestParam Long idEntrada) {
-        Long precioEntrada = this.service.reservar(idEntrada);
+        Long precioEntrada = this.service.reservar(idEntrada, session.getId());
         Long precioTotal = (Long) session.getAttribute("precioTotal");
         if(precioTotal == null) {
             precioTotal = precioEntrada;

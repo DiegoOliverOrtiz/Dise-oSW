@@ -12,6 +12,7 @@ import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Transient;
 
 @Entity
 @Inheritance(strategy = InheritanceType.JOINED)
@@ -26,6 +27,9 @@ public abstract class Entrada {
 
     @Enumerated(EnumType.STRING)
     protected Estado estado;
+
+    @Transient
+    protected Token token; // Relación con Token4
 
     public Long getId() {
         return id;
@@ -54,4 +58,12 @@ public abstract class Entrada {
     public void setPrecio(Long precio) {
         this.precio = precio;
     }
+
+    public Token getToken() {
+        return token;
+    }
+    public void setToken(Token token) {
+        this.token = token;
+    }
+
 }

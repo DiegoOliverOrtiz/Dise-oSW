@@ -31,6 +31,9 @@ public class BusquedaService {
     public List<Espectaculo> getEspectaculos(String artista) {
         return this.espectaculoDao.findByArtista(artista);
     }
+    public List<Espectaculo> getEspectaculos(Long idEscenario) {
+        return this.espectaculoDao.findByEscenario(idEscenario);
+    }
 
     public List<Entrada> getEntradas(Long espectaculoId) {
         return this.entradaDao.findByEspectaculoId(espectaculoId);
