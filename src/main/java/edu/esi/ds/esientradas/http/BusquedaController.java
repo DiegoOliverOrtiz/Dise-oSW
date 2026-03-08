@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import edu.esi.ds.esientradas.dto.DtoEntradas;
 import edu.esi.ds.esientradas.dto.DtoEspectaculo;
 import edu.esi.ds.esientradas.model.Entrada;
 import edu.esi.ds.esientradas.model.Escenario;
@@ -27,7 +28,7 @@ public class BusquedaController {
 
     @GetMapping("/getEspectaculos")
     public List<DtoEspectaculo> getEspectaculos(@RequestParam String artista) {
-        List<Espectaculo> espectaculos = this.service.getEspectaculos(artista);
+        List<Espectaculo> espectaculos = this.service.getEspectaculosPorArtista(artista);
         List<DtoEspectaculo> dtos = espectaculos.stream().map(e -> {
             DtoEspectaculo dto = new DtoEspectaculo();
             dto.setId(e.getId());
@@ -61,6 +62,23 @@ public class BusquedaController {
     @GetMapping("/getEntradas")
     public List<Entrada> getEntradas(@RequestParam Long espectaculoId) {
         return this.service.getEntradas(espectaculoId);
+    }
+
+    @GetMapping("/getNumeroDeEntradas")
+    public Integer getNumeroDeEntradas(@RequestParam Long espectaculoId) {
+        return this.service.getNumeroDeEntradas(espectaculoId);
+    }
+
+    @GetMapping("/getNumeroDeEntradasComoDto")
+    public DtoEntradas getNumeroDeEntradasComoDto(@RequestParam Long espectaculoId) {
+        DtoEntradas dto = this.service.getNumeroDeEntradasComoDto(espectaculoId);
+        
+        return dto;
+    }
+
+    @GetMapping("/getEntradasLibres")
+    public Integer getEntradasLibres(@RequestParam Long espectaculoId) {
+        return this.service.getEntradasLibres(espectaculoId);
     }
 
     @GetMapping("/saludar/{nombre}")

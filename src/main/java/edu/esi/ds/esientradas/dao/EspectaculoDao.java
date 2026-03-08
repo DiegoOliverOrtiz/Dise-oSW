@@ -10,5 +10,5 @@ import edu.esi.ds.esientradas.model.Espectaculo;
 public interface EspectaculoDao extends JpaRepository<Espectaculo, Long> { //Entidad que se gestiona y su clave (En tipo variable)
      List<Espectaculo> findByArtista(String artista);
      
-     List<Espectaculo> findByEscenario(Long idEscenario);
+     List<Espectaculo> findByEscenarioId(Long idEscenario);
 }
