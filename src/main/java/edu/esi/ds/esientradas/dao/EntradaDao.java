@@ -20,14 +20,14 @@ public interface EntradaDao extends JpaRepository<Entrada, Long> { //Entidad que
 
     public Integer countByEspectaculoId(Long espectaculoId);
 
-    public Integer countByEspectaculoIdAndEstado(Long espectaculoId);
+    public Integer countByEspectaculoIdAndEstado(Long espectaculoId, Estado estado);
 
-    @Query("SELECT \n" +
-            "COUNT(*) AS total,\n " +
-            "SUM(estado='DISPONIBLE') AS libres,\n " +
-            "SUM(estado = 'RESERVADA') AS reservadas,\n " +
-            "SUM(estado = 'VENDIDA') AS vendidas " +
-            "FROM Entrada\n " +
-            "WHERE espectaculo_id = :espectaculoId;")
+    @Query("SELECT " +
+            "COUNT(e) AS total, " +
+            "SUM(CASE WHEN e.estado = 'DISPONIBLE' THEN 1 ELSE 0 END) AS libres, " +
+            "SUM(CASE WHEN e.estado = 'RESERVADA' THEN 1 ELSE 0 END) AS reservadas, " +
+            "SUM(CASE WHEN e.estado = 'VENDIDA' THEN 1 ELSE 0 END) AS vendidas " +
+            "FROM Entrada e " +
+            "WHERE e.espectaculo.id = :espectaculoId")
     Object getNumeroDeEntradasComoDto(@Param("espectaculoId") Long espectaculoId);
 }

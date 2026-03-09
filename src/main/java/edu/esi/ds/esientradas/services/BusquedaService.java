@@ -45,7 +45,7 @@ public class BusquedaService {
     }
 
     public Integer getEntradasLibres(Long espectaculoId) {
-        return this.entradaDao.countByEspectaculoIdAndEstado(espectaculoId);
+        return this.entradaDao.countByEspectaculoIdAndEstado(espectaculoId, edu.esi.ds.esientradas.model.Estado.DISPONIBLE);
     }
 
     public DtoEntradas getNumeroDeEntradasComoDto(Long espectaculoId) {
