@@ -13,10 +13,11 @@ import edu.esi.ds.esientradas.model.Estado;
 
 public interface EntradaDao extends JpaRepository<Entrada, Long> { //Entidad que se gestiona y su clave (En tipo variable)
     List<Entrada> findByEspectaculoId(Long espectaculoId);
+    List<Entrada> findByEspectaculoIdAndEstadoOrderByIdAsc(Long espectaculoId, Estado estado);
 
     @Query(value = "UPDATE Entrada e SET e.estado = :estado WHERE e.id = :idEntrada")
     @Modifying
-    void updateEstado(@Param("idEntrada") Long idEntrada, Estado estado);
+    void updateEstado(@Param("idEntrada") Long idEntrada, @Param("estado") Estado estado);
 
     public Integer countByEspectaculoId(Long espectaculoId);
 

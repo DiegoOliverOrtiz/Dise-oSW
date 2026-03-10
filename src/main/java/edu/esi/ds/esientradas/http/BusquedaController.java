@@ -3,13 +3,13 @@ package edu.esi.ds.esientradas.http;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import edu.esi.ds.esientradas.dto.DtoEntradaCompra;
 import edu.esi.ds.esientradas.dto.DtoEntradas;
 import edu.esi.ds.esientradas.dto.DtoEspectaculo;
 import edu.esi.ds.esientradas.model.Entrada;
@@ -20,7 +20,6 @@ import edu.esi.ds.esientradas.services.BusquedaService;
 
 @RestController
 @RequestMapping("/busqueda")
-@CrossOrigin(origins="*")
 public class BusquedaController {
 
     @Autowired //Cuando arranca el servicio en esta clase lo crea, si lo encuentra en otro lado no lo hace
@@ -62,6 +61,11 @@ public class BusquedaController {
     @GetMapping("/getEntradas")
     public List<Entrada> getEntradas(@RequestParam Long espectaculoId) {
         return this.service.getEntradas(espectaculoId);
+    }
+
+    @GetMapping("/getEntradasDisponibles")
+    public List<DtoEntradaCompra> getEntradasDisponibles(@RequestParam Long espectaculoId) {
+        return this.service.getEntradasDisponibles(espectaculoId);
     }
 
     @GetMapping("/getNumeroDeEntradas")
