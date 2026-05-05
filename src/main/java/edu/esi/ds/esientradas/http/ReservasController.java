@@ -3,6 +3,7 @@ package edu.esi.ds.esientradas.http;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,5 +46,10 @@ public class ReservasController {
         }
         session.setAttribute("precioTotal", precioTotal);
         return new DtoReservaResponse(precioTotal, request.getEntradaIds().size());
+    }
+
+    @GetMapping("/summary")
+    public DtoReservaResponse resumen(HttpSession session) {
+        return this.service.getResumen(session.getId());
     }
 }

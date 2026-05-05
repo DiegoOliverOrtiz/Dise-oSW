@@ -19,6 +19,10 @@ public interface EntradaDao extends JpaRepository<Entrada, Long> { //Entidad que
     @Modifying
     void updateEstado(@Param("idEntrada") Long idEntrada, @Param("estado") Estado estado);
 
+    @Query("UPDATE Entrada e SET e.estado = :nuevoEstado WHERE e.id = :idEntrada AND e.estado = :expected")
+    @Modifying
+    int updateEstadoIf(@Param("idEntrada") Long idEntrada, @Param("nuevoEstado") Estado nuevoEstado, @Param("expected") Estado expected);
+
     public Integer countByEspectaculoId(Long espectaculoId);
 
     public Integer countByEspectaculoIdAndEstado(Long espectaculoId, Estado estado);

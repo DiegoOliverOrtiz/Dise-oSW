@@ -1,15 +1,16 @@
 package edu.esi.ds.esientradas.http;
 
-import java.io.IOException;
-
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
+import edu.esi.ds.esientradas.dto.DtoPagoIntent;
+import edu.esi.ds.esientradas.services.PagosService;
 import edu.esi.ds.esientradas.services.UsuarioService;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 
@@ -19,13 +20,20 @@ import jakarta.servlet.http.HttpSession;
 public class ComprasController {
     @Autowired 
     private UsuarioService usuariosService;
+    @Autowired
+    private PagosService pagosService;
+
     @PutMapping("/comprar")
-    public void comprar(HttpSession session, HttpServletResponse response,@RequestParam String userToken) throws IOException {
-        String sessionId = session.getId();
-        if(userToken==null || userToken.isEmpty()) {
-            response.sendRedirect("https://www.uclm.es/");
-            return;
+    public DtoPagoIntent comprar(HttpSession session, @RequestParam String userToken) {
+        if (userToken == null || userToken.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token de usuario requerido para comprar");
         }
-        this.usuariosService.checkToken(userToken);
+
+        String userEmail = this.usuariosService.checkToken(userToken);
+        // Guardamos el email del usuario en la sesión para usarlo más adelante
+        session.setAttribute("userEmail", userEmail);
+
+        // Crear y devolver el intent de pago asociado a la sesión
+        return this.pagosService.crearIntentoPago(session.getId(), userEmail);
     }
 }

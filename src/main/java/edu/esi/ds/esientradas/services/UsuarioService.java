@@ -8,7 +8,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class UsuarioService {
-    public void checkToken(String userToken) {
+    public String checkToken(String userToken) {
         String endpoint = "http://localhost:8081/external/checkToken";
         RestTemplate rest = new RestTemplate();
         try{
@@ -16,6 +16,7 @@ public class UsuarioService {
             if(username == null || username.isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token invalido");
             }
+            return username;
         }
         catch(RestClientException e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error al validar el token");

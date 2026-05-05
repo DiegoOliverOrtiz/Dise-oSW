@@ -3,7 +3,9 @@ package edu.esi.ds.esientradas.services;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import edu.esi.ds.esientradas.dao.EntradaDao;
 import edu.esi.ds.esientradas.dao.EscenarioDao;
@@ -68,6 +70,11 @@ public class BusquedaService {
         dto.setReservadas(((Number) row[2]).intValue());
         dto.setVendidas(((Number) row[3]).intValue());
         return dto;
+    }
+
+    public Espectaculo getEspectaculoById(Long id) {
+        return this.espectaculoDao.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Espectaculo no encontrado"));
     }
 
     private DtoEntradaCompra crearDtoCompra(Entrada entrada) {

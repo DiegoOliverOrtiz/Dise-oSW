@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import edu.esi.ds.esientradas.dto.DtoEntradaCompra;
 import edu.esi.ds.esientradas.dto.DtoEntradas;
 import edu.esi.ds.esientradas.dto.DtoEspectaculo;
+import edu.esi.ds.esientradas.dto.DtoEspectaculoDetalle;
 import edu.esi.ds.esientradas.model.Entrada;
 import edu.esi.ds.esientradas.model.Escenario;
 import edu.esi.ds.esientradas.model.Espectaculo;
@@ -83,6 +84,18 @@ public class BusquedaController {
     @GetMapping("/getEntradasLibres")
     public Integer getEntradasLibres(@RequestParam Long espectaculoId) {
         return this.service.getEntradasLibres(espectaculoId);
+    }
+
+    @GetMapping("/espectaculos/{id}/detalle")
+    public DtoEspectaculoDetalle getEspectaculoDetalle(@PathVariable Long id) {
+        Espectaculo e = this.service.getEspectaculoById(id);
+        DtoEspectaculoDetalle dto = new DtoEspectaculoDetalle();
+        dto.setId(e.getId());
+        dto.setArtista(e.getArtista());
+        dto.setFecha(e.getFecha());
+        dto.setEscenario(e.getEscenario().getNombre());
+        dto.setEntradas(this.service.getEntradas(id));
+        return dto;
     }
 
     @GetMapping("/saludar/{nombre}")

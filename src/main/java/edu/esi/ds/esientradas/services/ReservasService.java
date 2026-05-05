@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import edu.esi.ds.esientradas.dao.EntradaDao;
 import edu.esi.ds.esientradas.dao.TokenDao;
+import edu.esi.ds.esientradas.dto.DtoReservaResponse;
 import edu.esi.ds.esientradas.model.Entrada;
 import edu.esi.ds.esientradas.model.Estado;
 import edu.esi.ds.esientradas.model.Token;
@@ -24,18 +25,16 @@ public class ReservasService {
 
     @Transactional
     public Long reservar(Long idEntrada, String sesionId) {
-        Entrada entrada = this.dao.findById(idEntrada).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrada no encontrada"));
-        if(entrada.getEstado() != Estado.DISPONIBLE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La entrada no está disponible para reservar");
+        // Intentar reservar de forma condicional en la base de datos para evitar carreras
+        int updated = this.dao.updateEstadoIf(idEntrada, Estado.RESERVADA, Estado.DISPONIBLE);
+        if (updated == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "La entrada no está disponible para reservar");
         }
-        //entrada.setEstado(Estado.RESERVADA);
-        //this.dao.save(entrada);
+        Entrada entrada = this.dao.findById(idEntrada).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrada no encontrada"));
         Token token = new Token();
         token.setEntrada(entrada);
         token.setSesionId(sesionId);
         this.tokenDao.save(token);
-        
-        this.dao.updateEstado(idEntrada, Estado.RESERVADA);
         return entrada.getPrecio();
     }
 
@@ -49,5 +48,11 @@ public class ReservasService {
             precioTotal += this.reservar(idEntrada, sesionId);
         }
         return precioTotal;
+    }
+
+    public DtoReservaResponse getResumen(String sesionId) {
+        List<Token> tokens = this.tokenDao.findBySesionId(sesionId);
+        long precioTotal = tokens.stream().mapToLong(t -> t.getEntrada().getPrecio()).sum();
+        return new DtoReservaResponse(precioTotal, tokens.size());
     }
 }

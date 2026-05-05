@@ -3,8 +3,11 @@ package edu.esi.ds.esientradas.services;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +28,8 @@ import edu.esi.ds.esientradas.model.Token;
 @Service
 public class PagosService {
 
+    private static final Logger log = LoggerFactory.getLogger(PagosService.class);
+
     @Value("${stripe.secret-key:}")
     private String stripeSecretKey;
 
@@ -37,22 +42,33 @@ public class PagosService {
     @Autowired
     private EntradaDao entradaDao;
 
+    @Autowired
+    private ApplicationEventPublisher publisher;
+
+    @Autowired
+    private edu.esi.ds.esientradas.dao.EmailQueueDao emailQueueDao;
+
     @Transactional(readOnly = true)
-    public DtoPagoIntent crearIntentoPago(String sesionId) {
+    public DtoPagoIntent crearIntentoPago(String sesionId, String userEmail) {
         List<Token> reservas = this.getReservas(sesionId);
         long amount = reservas.stream().mapToLong(token -> token.getEntrada().getPrecio()).sum();
 
         this.configurarStripe();
 
         try {
-            PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+            PaymentIntentCreateParams.Builder builder = PaymentIntentCreateParams.builder()
                     .setAmount(amount)
                     .setCurrency("eur")
                     .addPaymentMethodType("card")
                     .setDescription("Compra de entradas")
                     .putMetadata("sessionId", sesionId)
-                    .putMetadata("entryIds", this.serializeEntryIds(reservas))
-                    .build();
+                    .putMetadata("entryIds", this.serializeEntryIds(reservas));
+
+            if (userEmail != null && !userEmail.isBlank()) {
+                builder.putMetadata("userEmail", userEmail);
+            }
+
+            PaymentIntentCreateParams params = builder.build();
 
             PaymentIntent paymentIntent = PaymentIntent.create(params);
 
@@ -77,13 +93,36 @@ public class PagosService {
         if ("succeeded".equals(paymentIntent.getStatus())) {
             if (!reservas.isEmpty()) {
                 for (Token token : reservas) {
-                    this.entradaDao.updateEstado(token.getEntrada().getId(), Estado.VENDIDA);
+                    int updated = this.entradaDao.updateEstadoIf(token.getEntrada().getId(), Estado.VENDIDA, Estado.RESERVADA);
+                    if (updated == 0) {
+                        // Alguna entrada ya no estaba reservada por esta sesión — rollback
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "No se pudo confirmar la venta: alguna entrada no estaba reservada");
+                    }
                 }
                 this.tokenDao.deleteBySesionId(sesionId);
             }
+
+            boolean emailScheduled = false;
+            String userEmail = paymentIntent.getMetadata() == null ? null : paymentIntent.getMetadata().get("userEmail");
+            if (userEmail != null && !userEmail.isBlank()) {
+                String html = generarHtmlTicket(reservas);
+                // Persistir outbox dentro de la transacción y publicar el id para el worker
+                edu.esi.ds.esientradas.model.EmailQueue q = new edu.esi.ds.esientradas.model.EmailQueue();
+                q.setToAddress(userEmail);
+                q.setSubject("Tus entradas - ESI Entradas");
+                q.setBodyHtml(html);
+                q.setReference(paymentIntentId);
+                q = this.emailQueueDao.save(q);
+                this.publisher.publishEvent(new edu.esi.ds.esientradas.events.EmailQueueCreatedEvent(q.getId()));
+                emailScheduled = true;
+            } else {
+                log.info("No hay userEmail en el metadata del paymentIntent {}", paymentIntentId);
+            }
+
+                String message = "Pago confirmado" + (emailScheduled ? " - email encolado" : " - email no encolado");
             return new DtoPagoResultado(
                     paymentIntent.getStatus(),
-                    "Pago confirmado",
+                    message,
                     this.amountOrReceived(paymentIntent),
                     paymentIntent.getCurrency(),
                     reservas.size());
@@ -153,5 +192,37 @@ public class PagosService {
             return amountReceived;
         }
         return paymentIntent.getAmount();
+    }
+
+    private String generarHtmlTicket(List<Token> reservas) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<html><body>");
+        sb.append("<h2>Tus entradas - ESI Entradas</h2>");
+        sb.append("<ul>");
+        for (Token token : reservas) {
+            if (token.getEntrada() == null) continue;
+            var entrada = token.getEntrada();
+            var espectaculo = entrada.getEspectaculo();
+            sb.append("<li>");
+            sb.append("<strong>Espectáculo:</strong> ");
+            sb.append(espectaculo != null ? espectaculo.getArtista() : "-");
+            sb.append("<br/>");
+            sb.append("<strong>Fecha:</strong> ");
+            sb.append(espectaculo != null && espectaculo.getFecha() != null ? espectaculo.getFecha().toString() : "-");
+            sb.append("<br/>");
+            if (entrada instanceof edu.esi.ds.esientradas.model.Precisa) {
+                edu.esi.ds.esientradas.model.Precisa p = (edu.esi.ds.esientradas.model.Precisa) entrada;
+                sb.append("Asiento: planta " + p.getPlanta() + ", fila " + p.getFila() + ", columna " + p.getColumna());
+            } else if (entrada instanceof edu.esi.ds.esientradas.model.DeZona) {
+                edu.esi.ds.esientradas.model.DeZona z = (edu.esi.ds.esientradas.model.DeZona) entrada;
+                sb.append("Zona: " + z.getZona());
+            } else {
+                sb.append("Entrada id: " + entrada.getId());
+            }
+            sb.append("</li>");
+        }
+        sb.append("</ul>");
+        sb.append("</body></html>");
+        return sb.toString();
     }
 }

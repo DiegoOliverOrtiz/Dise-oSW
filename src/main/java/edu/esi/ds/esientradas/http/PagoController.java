@@ -20,7 +20,8 @@ public class PagoController {
 
     @PostMapping("/payment-intent")
     public DtoPagoIntent createPaymentIntent(HttpSession session) {
-        return this.pagosService.crearIntentoPago(session.getId());
+        String userEmail = (String) session.getAttribute("userEmail");
+        return this.pagosService.crearIntentoPago(session.getId(), userEmail);
     }
 
     @PostMapping("/confirmar")
