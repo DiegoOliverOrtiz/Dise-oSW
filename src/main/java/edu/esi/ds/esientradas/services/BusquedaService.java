@@ -36,7 +36,7 @@ public class BusquedaService {
     }
 
     public List<Espectaculo> getEspectaculosPorArtista(String artista) {
-        return this.espectaculoDao.findByArtista(artista);
+        return this.espectaculoDao.findByArtistaContainingIgnoreCase(artista == null ? "" : artista.trim());
     }
     public List<Espectaculo> getEspectaculos(Long idEscenario) {
         return this.espectaculoDao.findByEscenarioId(idEscenario);
