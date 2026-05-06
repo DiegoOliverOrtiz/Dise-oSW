@@ -13,6 +13,9 @@ public interface TokenDao extends JpaRepository<Token, String> { //Entidad que s
     @Query("SELECT t FROM Token t JOIN FETCH t.entrada WHERE t.sesionId = :sesionId")
     List<Token> findBySesionId(@Param("sesionId") String sesionId);
 
+    @Query("SELECT t FROM Token t JOIN FETCH t.entrada WHERE t.horaActiva < :horaLimite")
+    List<Token> findExpiredWithEntrada(@Param("horaLimite") long horaLimite);
+
     void deleteBySesionId(String sesionId);
 
     @Query("SELECT t FROM Token t JOIN FETCH t.entrada WHERE t.horaActiva <= :threshold")

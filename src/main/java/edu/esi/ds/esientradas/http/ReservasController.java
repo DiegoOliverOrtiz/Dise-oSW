@@ -1,6 +1,7 @@
 package edu.esi.ds.esientradas.http;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,18 +12,21 @@ import edu.esi.ds.esientradas.dto.DtoReservaRequest;
 import edu.esi.ds.esientradas.dto.DtoReservaResponse;
 import edu.esi.ds.esientradas.services.ReservasService;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 
 
 
 @RestController
 @RequestMapping("/reservas")
+@Validated
 public class ReservasController {
 
     @Autowired
     private ReservasService service;
     
     @PutMapping("/reservar")
-    public Long reservar(HttpSession session, @RequestParam Long idEntrada) {
+    public Long reservar(HttpSession session, @RequestParam @Positive Long idEntrada) {
         Long precioEntrada = this.service.reservar(idEntrada, session.getId());
         Long precioTotal = (Long) session.getAttribute("precioTotal");
         if(precioTotal == null) {
@@ -36,7 +40,7 @@ public class ReservasController {
     }
 
     @PutMapping("/reservar-lote")
-    public DtoReservaResponse reservarLote(HttpSession session, @RequestBody DtoReservaRequest request) {
+    public DtoReservaResponse reservarLote(HttpSession session, @Valid @RequestBody DtoReservaRequest request) {
         Long precioEntrada = this.service.reservarEntradas(request.getEntradaIds(), session.getId());
         Long precioTotal = (Long) session.getAttribute("precioTotal");
         if (precioTotal == null) {
