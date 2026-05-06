@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -18,6 +19,8 @@ import edu.esi.ds.esientradas.model.Token;
 
 @Service
 public class ReservasService {
+    private static final long RESERVA_TTL_MILLIS = 10 * 60 * 1000;
+
     @Autowired
     private EntradaDao dao;
     @Autowired
@@ -54,5 +57,23 @@ public class ReservasService {
         List<Token> tokens = this.tokenDao.findBySesionId(sesionId);
         long precioTotal = tokens.stream().mapToLong(t -> t.getEntrada().getPrecio()).sum();
         return new DtoReservaResponse(precioTotal, tokens.size());
+    }
+
+    @Scheduled(fixedDelay = 30000)
+    @Transactional
+    public void liberarReservasCaducadas() {
+        long horaLimite = System.currentTimeMillis() - RESERVA_TTL_MILLIS;
+        List<Token> tokensCaducados = this.tokenDao.findExpiredWithEntrada(horaLimite);
+
+        for (Token token : tokensCaducados) {
+            Entrada entrada = token.getEntrada();
+            if (entrada != null && entrada.getEstado() == Estado.RESERVADA) {
+                this.dao.updateEstado(entrada.getId(), Estado.DISPONIBLE);
+            }
+        }
+
+        if (!tokensCaducados.isEmpty()) {
+            this.tokenDao.deleteAll(tokensCaducados);
+        }
     }
 }
