@@ -81,10 +81,18 @@ public class BusquedaController {
     public List<DtoEntradaCompra> getEntradasDisponibles(
         HttpSession session,
         @RequestParam @Positive Long espectaculoId,
-        @org.springframework.web.bind.annotation.RequestHeader(value = "X-Queue-Access", required = false) String queueAccessToken
+        @org.springframework.web.bind.annotation.RequestHeader(value = "X-Queue-Access", required = false) String queueAccessToken,
+        @org.springframework.web.bind.annotation.RequestHeader(value = "X-Queue-Client", required = false) String queueClientId
     ) {
-        colaVirtualService.assertAccess(espectaculoId, session.getId(), queueAccessToken);
+        colaVirtualService.assertAccess(espectaculoId, queueIdentity(session, queueClientId), queueAccessToken);
         return this.service.getEntradasDisponibles(espectaculoId);
+    }
+
+    private String queueIdentity(HttpSession session, String queueClientId) {
+        if (queueClientId == null || queueClientId.isBlank()) {
+            return session.getId();
+        }
+        return session.getId() + ":" + queueClientId.strip();
     }
 
     @GetMapping("/getNumeroDeEntradas")
