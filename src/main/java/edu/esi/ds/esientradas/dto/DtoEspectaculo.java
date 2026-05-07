@@ -7,6 +7,8 @@ public class DtoEspectaculo {
     private String artista;
     private LocalDateTime fecha;
     private String escenario;
+    private boolean altaDemanda;
+    private LocalDateTime aperturaTaquilla;
 
     public void setArtista(String artista) {
         this.artista = artista;
@@ -22,6 +24,22 @@ public class DtoEspectaculo {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public boolean isAltaDemanda() {
+        return altaDemanda;
+    }
+
+    public void setAltaDemanda(boolean altaDemanda) {
+        this.altaDemanda = altaDemanda;
+    }
+
+    public LocalDateTime getAperturaTaquilla() {
+        return aperturaTaquilla;
+    }
+
+    public void setAperturaTaquilla(LocalDateTime aperturaTaquilla) {
+        this.aperturaTaquilla = aperturaTaquilla;
     }
 
     public String getArtista() {

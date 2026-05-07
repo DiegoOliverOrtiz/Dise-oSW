@@ -15,13 +15,13 @@ public interface EntradaDao extends JpaRepository<Entrada, Long> { //Entidad que
     List<Entrada> findByEspectaculoId(Long espectaculoId);
     List<Entrada> findByEspectaculoIdAndEstadoOrderByIdAsc(Long espectaculoId, Estado estado);
 
-    @Query(value = "UPDATE Entrada e SET e.estado = :estado WHERE e.id = :idEntrada")
+    @Query(value = "UPDATE entrada SET estado = :estado WHERE id = :idEntrada", nativeQuery = true)
     @Modifying
-    void updateEstado(@Param("idEntrada") Long idEntrada, @Param("estado") Estado estado);
+    void updateEstado(@Param("idEntrada") Long idEntrada, @Param("estado") String estado);
 
-    @Query("UPDATE Entrada e SET e.estado = :nuevoEstado WHERE e.id = :idEntrada AND e.estado = :expected")
+    @Query(value = "UPDATE entrada SET estado = :nuevoEstado WHERE id = :idEntrada AND estado = :expected", nativeQuery = true)
     @Modifying
-    int updateEstadoIf(@Param("idEntrada") Long idEntrada, @Param("nuevoEstado") Estado nuevoEstado, @Param("expected") Estado expected);
+    int updateEstadoIf(@Param("idEntrada") Long idEntrada, @Param("nuevoEstado") String nuevoEstado, @Param("expected") String expected);
 
     public Integer countByEspectaculoId(Long espectaculoId);
 

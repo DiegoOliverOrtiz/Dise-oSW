@@ -7,7 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,10 +42,7 @@ public class PagosService {
     private EntradaDao entradaDao;
 
     @Autowired
-    private ApplicationEventPublisher publisher;
-
-    @Autowired
-    private edu.esi.ds.esientradas.dao.EmailQueueDao emailQueueDao;
+    private EmailDeliveryService emailDeliveryService;
 
     @Transactional(readOnly = true)
     public DtoPagoIntent crearIntentoPago(String sesionId, String userEmail) {
@@ -84,7 +80,7 @@ public class PagosService {
     }
 
     @Transactional
-    public DtoPagoResultado confirmarPago(String sesionId, String paymentIntentId) {
+    public DtoPagoResultado confirmarPago(String sesionId, String paymentIntentId, String authenticatedUserEmail) {
         this.configurarStripe();
         PaymentIntent paymentIntent = this.recuperarPago(paymentIntentId);
         this.validarSesion(paymentIntent, sesionId);
@@ -93,7 +89,7 @@ public class PagosService {
         if ("succeeded".equals(paymentIntent.getStatus())) {
             if (!reservas.isEmpty()) {
                 for (Token token : reservas) {
-                    int updated = this.entradaDao.updateEstadoIf(token.getEntrada().getId(), Estado.VENDIDA, Estado.RESERVADA);
+                    int updated = this.entradaDao.updateEstadoIf(token.getEntrada().getId(), Estado.VENDIDA.name(), Estado.RESERVADA.name());
                     if (updated == 0) {
                         // Alguna entrada ya no estaba reservada por esta sesión — rollback
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "No se pudo confirmar la venta: alguna entrada no estaba reservada");
@@ -103,20 +99,17 @@ public class PagosService {
             }
 
             boolean emailScheduled = false;
-            String userEmail = paymentIntent.getMetadata() == null ? null : paymentIntent.getMetadata().get("userEmail");
+            String userEmail = this.resolveUserEmail(authenticatedUserEmail, paymentIntent);
             if (userEmail != null && !userEmail.isBlank()) {
                 String html = generarHtmlTicket(reservas);
-                // Persistir outbox dentro de la transacción y publicar el id para el worker
-                edu.esi.ds.esientradas.model.EmailQueue q = new edu.esi.ds.esientradas.model.EmailQueue();
-                q.setToAddress(userEmail);
-                q.setSubject("Tus entradas - ESI Entradas");
-                q.setBodyHtml(html);
-                q.setReference(paymentIntentId);
-                q = this.emailQueueDao.save(q);
-                this.publisher.publishEvent(new edu.esi.ds.esientradas.events.EmailQueueCreatedEvent(q.getId()));
+                this.emailDeliveryService.enqueueAndTrySend(
+                        userEmail,
+                        "Tus entradas - ESI Entradas",
+                        html,
+                        paymentIntentId);
                 emailScheduled = true;
             } else {
-                log.info("No hay userEmail en el metadata del paymentIntent {}", paymentIntentId);
+                log.warn("No hay email de usuario autenticado ni metadata userEmail en el paymentIntent {}", paymentIntentId);
             }
 
                 String message = "Pago confirmado" + (emailScheduled ? " - email encolado" : " - email no encolado");
@@ -140,7 +133,7 @@ public class PagosService {
     public void cancelarPago(String sesionId) {
         List<Token> reservas = this.tokenDao.findBySesionId(sesionId);
         for (Token token : reservas) {
-            this.entradaDao.updateEstado(token.getEntrada().getId(), Estado.DISPONIBLE);
+            this.entradaDao.updateEstado(token.getEntrada().getId(), Estado.DISPONIBLE.name());
         }
         if (!reservas.isEmpty()) {
             this.tokenDao.deleteBySesionId(sesionId);
@@ -194,8 +187,21 @@ public class PagosService {
         return paymentIntent.getAmount();
     }
 
+    private String resolveUserEmail(String authenticatedUserEmail, PaymentIntent paymentIntent) {
+        if (authenticatedUserEmail != null && !authenticatedUserEmail.isBlank()) {
+            return authenticatedUserEmail;
+        }
+        if (paymentIntent.getMetadata() == null) {
+            return null;
+        }
+        return paymentIntent.getMetadata().get("userEmail");
+    }
+
     private String generarHtmlTicket(List<Token> reservas) {
         StringBuilder sb = new StringBuilder();
+        if (Boolean.TRUE.equals(Boolean.TRUE)) {
+            return generarHtmlTicketBonito(reservas);
+        }
         sb.append("<html><body>");
         sb.append("<h2>Tus entradas - ESI Entradas</h2>");
         sb.append("<ul>");
@@ -224,5 +230,92 @@ public class PagosService {
         sb.append("</ul>");
         sb.append("</body></html>");
         return sb.toString();
+    }
+
+    private String generarHtmlTicketBonito(List<Token> reservas) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<!doctype html>");
+        sb.append("<html lang=\"es\">");
+        sb.append("<body style=\"margin:0;padding:0;background:#f3f5f7;font-family:Arial,Helvetica,sans-serif;color:#1f2933;\">");
+        sb.append("<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f3f5f7;padding:28px 12px;\">");
+        sb.append("<tr><td align=\"center\">");
+        sb.append("<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:680px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #dfe5ec;\">");
+        sb.append("<tr><td style=\"background:#111827;padding:30px 28px;color:#ffffff;\">");
+        sb.append("<div style=\"font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#93c5fd;font-weight:700;\">ESI Entradas</div>");
+        sb.append("<h1 style=\"margin:10px 0 0;font-size:28px;line-height:1.2;font-weight:800;\">Tus entradas estan confirmadas</h1>");
+        sb.append("<p style=\"margin:12px 0 0;font-size:15px;line-height:1.5;color:#d1d5db;\">Guarda este correo. Presenta tus entradas al acceder al espectaculo.</p>");
+        sb.append("</td></tr>");
+        sb.append("<tr><td style=\"padding:24px 28px;\">");
+        sb.append("<div style=\"background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:14px 16px;margin-bottom:22px;color:#065f46;font-size:14px;\">");
+        sb.append("<strong>Compra completada.</strong> Hemos incluido el detalle de tus entradas a continuacion.");
+        sb.append("</div>");
+
+        for (Token token : reservas) {
+            if (token.getEntrada() == null) {
+                continue;
+            }
+            var entrada = token.getEntrada();
+            var espectaculo = entrada.getEspectaculo();
+            sb.append("<div style=\"border:1px solid #d8dee8;border-radius:12px;margin:0 0 16px;overflow:hidden;\">");
+            sb.append("<div style=\"background:#f8fafc;padding:16px 18px;border-bottom:1px solid #e5e7eb;\">");
+            sb.append("<div style=\"font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;font-weight:700;\">Entrada</div>");
+            sb.append("<div style=\"font-size:21px;font-weight:800;color:#111827;margin-top:4px;\">");
+            sb.append(escapeHtml(espectaculo != null ? espectaculo.getArtista() : "-"));
+            sb.append("</div></div>");
+            sb.append("<div style=\"padding:16px 18px;\">");
+            sb.append("<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">");
+            addTicketRow(sb, "Fecha", espectaculo != null && espectaculo.getFecha() != null ? espectaculo.getFecha().toString() : "-");
+            addTicketRow(sb, "Ubicacion", ubicacionEntrada(entrada));
+            addTicketRow(sb, "Precio", formatEuros(entrada.getPrecio()) + " EUR");
+            sb.append("</table>");
+            sb.append("<div style=\"margin-top:14px;padding:12px 14px;border-radius:8px;background:#111827;color:#ffffff;font-size:13px;font-weight:700;text-align:center;letter-spacing:.08em;\">");
+            sb.append("ENTRADA #");
+            sb.append(entrada.getId());
+            sb.append("</div></div></div>");
+        }
+
+        sb.append("<p style=\"margin:22px 0 0;color:#64748b;font-size:13px;line-height:1.5;\">Si necesitas ayuda, contacta con soporte de ESI Entradas. Este mensaje se ha generado automaticamente.</p>");
+        sb.append("</td></tr></table></td></tr></table>");
+        sb.append("</body></html>");
+        return sb.toString();
+    }
+
+    private void addTicketRow(StringBuilder sb, String label, String value) {
+        sb.append("<tr><td style=\"padding:6px 0;color:#64748b;font-size:13px;width:34%;\">");
+        sb.append(escapeHtml(label));
+        sb.append("</td><td style=\"padding:6px 0;color:#111827;font-size:14px;font-weight:700;\">");
+        sb.append(escapeHtml(value));
+        sb.append("</td></tr>");
+    }
+
+    private String ubicacionEntrada(edu.esi.ds.esientradas.model.Entrada entrada) {
+        if (entrada instanceof edu.esi.ds.esientradas.model.Precisa) {
+            edu.esi.ds.esientradas.model.Precisa p = (edu.esi.ds.esientradas.model.Precisa) entrada;
+            return "Planta " + p.getPlanta() + ", fila " + p.getFila() + ", asiento " + p.getColumna();
+        }
+        if (entrada instanceof edu.esi.ds.esientradas.model.DeZona) {
+            edu.esi.ds.esientradas.model.DeZona z = (edu.esi.ds.esientradas.model.DeZona) entrada;
+            return "Zona " + z.getZona();
+        }
+        return "Entrada " + entrada.getId();
+    }
+
+    private String formatEuros(Long cents) {
+        if (cents == null) {
+            return "0.00";
+        }
+        return String.format(java.util.Locale.ROOT, "%.2f", cents / 100.0);
+    }
+
+    private String escapeHtml(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }

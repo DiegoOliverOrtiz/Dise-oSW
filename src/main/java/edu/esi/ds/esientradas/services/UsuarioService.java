@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -33,6 +34,12 @@ public class UsuarioService {
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token invalido");
             }
             return username;
+        }
+        catch(HttpClientErrorException.Unauthorized e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token invalido");
+        }
+        catch(HttpClientErrorException.Forbidden e) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No se pudo validar el token de usuario");
         }
         catch(RestClientException e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error al validar el token");

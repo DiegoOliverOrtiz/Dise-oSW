@@ -35,6 +35,9 @@ public class EmailQueue {
 
     private String reference;
 
+    @Column(length = 1000)
+    private String lastError;
+
     public EmailQueue() {
         this.createdAt = System.currentTimeMillis();
         this.attempts = 0;
@@ -111,5 +114,13 @@ public class EmailQueue {
 
     public void setReference(String reference) {
         this.reference = reference;
+    }
+
+    public String getLastError() {
+        return lastError;
+    }
+
+    public void setLastError(String lastError) {
+        this.lastError = lastError;
     }
 }

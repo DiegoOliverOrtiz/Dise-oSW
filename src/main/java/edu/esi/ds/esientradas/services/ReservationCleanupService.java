@@ -34,7 +34,7 @@ public class ReservationCleanupService {
         for (Token t : expired) {
             Long idEntrada = t.getEntrada().getId();
             // Solo devolver a DISPONIBLE si está RESERVADA (para no sobreescribir ventas)
-            this.entradaDao.updateEstadoIf(idEntrada, Estado.DISPONIBLE, Estado.RESERVADA);
+            this.entradaDao.updateEstadoIf(idEntrada, Estado.DISPONIBLE.name(), Estado.RESERVADA.name());
             this.tokenDao.delete(t);
         }
     }

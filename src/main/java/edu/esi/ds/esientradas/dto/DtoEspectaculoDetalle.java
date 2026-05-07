@@ -10,6 +10,8 @@ public class DtoEspectaculoDetalle {
     private String artista;
     private LocalDateTime fecha;
     private String escenario;
+    private boolean altaDemanda;
+    private LocalDateTime aperturaTaquilla;
     private List<Entrada> entradas;
 
     public DtoEspectaculoDetalle() {
@@ -45,6 +47,22 @@ public class DtoEspectaculoDetalle {
 
     public void setEscenario(String escenario) {
         this.escenario = escenario;
+    }
+
+    public boolean isAltaDemanda() {
+        return altaDemanda;
+    }
+
+    public void setAltaDemanda(boolean altaDemanda) {
+        this.altaDemanda = altaDemanda;
+    }
+
+    public LocalDateTime getAperturaTaquilla() {
+        return aperturaTaquilla;
+    }
+
+    public void setAperturaTaquilla(LocalDateTime aperturaTaquilla) {
+        this.aperturaTaquilla = aperturaTaquilla;
     }
 
     public List<Entrada> getEntradas() {

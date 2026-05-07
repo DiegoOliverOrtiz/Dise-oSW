@@ -2,7 +2,7 @@ package edu.esi.ds.esientradas.config;
 
 import java.time.LocalDateTime;
 
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +17,7 @@ import edu.esi.ds.esientradas.model.Precisa;
 import jakarta.annotation.PostConstruct;
 
 @Component
-@Profile("dev")
+@ConditionalOnProperty(name = "app.demo-data.enabled", havingValue = "true")
 public class DevDataInitializer {
     private final EscenarioDao escenarioDao;
     private final EspectaculoDao espectaculoDao;
@@ -31,6 +31,7 @@ public class DevDataInitializer {
     @Transactional
     public void seedIfEmpty() {
         if (escenarioDao.count() > 0 || espectaculoDao.count() > 0) {
+            ensureHighDemandDemoEvents();
             return;
         }
 
@@ -45,7 +46,32 @@ public class DevDataInitializer {
         espectaculoDao.save(espectaculoConZonas("Bad Bunny", LocalDateTime.of(2026, 5, 22, 20, 0), estadio));
         espectaculoDao.save(espectaculoConZonas("Bad Bunny - Paquetes VIP", LocalDateTime.of(2026, 5, 23, 20, 0), estadio));
         espectaculoDao.save(espectaculoConZonas("Radiohead", LocalDateTime.of(2027, 6, 1, 21, 0), metropolitano));
-        espectaculoDao.save(espectaculoConButacas("Natos y Waor", LocalDateTime.of(2026, 3, 14, 18, 0), teatro));
+
+        Espectaculo natos = espectaculoConButacas("Natos y Waor", LocalDateTime.of(2026, 3, 14, 18, 0), teatro);
+        natos.setAltaDemanda(true);
+        natos.setAperturaTaquilla(LocalDateTime.of(2026, 5, 1, 11, 2));
+        espectaculoDao.save(natos);
+    }
+
+    private void ensureHighDemandDemoEvents() {
+        markHighDemand("Natos y Waor", LocalDateTime.of(2026, 5, 1, 11, 2));
+        unmarkHighDemand("Radiohead");
+    }
+
+    private void markHighDemand(String artista, LocalDateTime apertura) {
+        for (Espectaculo espectaculo : espectaculoDao.findByArtistaContainingIgnoreCase(artista)) {
+            espectaculo.setAltaDemanda(true);
+            espectaculo.setAperturaTaquilla(apertura);
+            espectaculoDao.save(espectaculo);
+        }
+    }
+
+    private void unmarkHighDemand(String artista) {
+        for (Espectaculo espectaculo : espectaculoDao.findByArtistaContainingIgnoreCase(artista)) {
+            espectaculo.setAltaDemanda(false);
+            espectaculo.setAperturaTaquilla(null);
+            espectaculoDao.save(espectaculo);
+        }
     }
 
     private Escenario escenario(String nombre, String descripcion) {

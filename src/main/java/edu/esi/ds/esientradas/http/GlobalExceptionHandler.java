@@ -4,8 +4,10 @@ import java.time.Instant;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -40,6 +42,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleBadRequest(Exception error, HttpServletRequest request) {
         logger.warn("Solicitud invalida en {} {}", request.getMethod(), request.getRequestURI());
         return build(HttpStatus.BAD_REQUEST, BAD_REQUEST, request);
+    }
+
+    @ExceptionHandler({
+        DataAccessException.class,
+        TransactionSystemException.class
+    })
+    public ResponseEntity<ApiErrorResponse> handleDatabaseError(Exception error, HttpServletRequest request) {
+        logger.error("Error de base de datos en {} {}", request.getMethod(), request.getRequestURI(), error);
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR, request);
     }
 
     @ExceptionHandler(Exception.class)

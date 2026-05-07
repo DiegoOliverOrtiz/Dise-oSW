@@ -44,7 +44,7 @@ public class PagoController {
     ) {
         String userEmail = requireAuthenticatedUser(request);
         session.setAttribute("userEmail", userEmail);
-        DtoPagoResultado resultado = this.pagosService.confirmarPago(session.getId(), paymentIntentId);
+        DtoPagoResultado resultado = this.pagosService.confirmarPago(session.getId(), paymentIntentId, userEmail);
         if ("succeeded".equals(resultado.getStatus())) {
             session.removeAttribute("precioTotal");
         }
