@@ -47,9 +47,10 @@ public class ReservasController {
     public DtoReservaResponse reservarLote(
         HttpSession session,
         @Valid @RequestBody DtoReservaRequest request,
-        @org.springframework.web.bind.annotation.RequestHeader(value = "X-Queue-Access", required = false) String queueAccessToken
+        @org.springframework.web.bind.annotation.RequestHeader(value = "X-Queue-Access", required = false) String queueAccessToken,
+        @org.springframework.web.bind.annotation.RequestHeader(value = "X-Queue-Client", required = false) String queueClientId
     ) {
-        colaVirtualService.assertAccessForEntradas(request.getEntradaIds(), session.getId(), queueAccessToken);
+        colaVirtualService.assertAccessForEntradas(request.getEntradaIds(), queueIdentity(session, queueClientId), queueAccessToken);
         Long precioEntrada = this.service.reservarEntradas(request.getEntradaIds(), session.getId());
         Long precioTotal = (Long) session.getAttribute("precioTotal");
         if (precioTotal == null) {
@@ -59,6 +60,13 @@ public class ReservasController {
         }
         session.setAttribute("precioTotal", precioTotal);
         return new DtoReservaResponse(precioTotal, request.getEntradaIds().size());
+    }
+
+    private String queueIdentity(HttpSession session, String queueClientId) {
+        if (queueClientId == null || queueClientId.isBlank()) {
+            return session.getId();
+        }
+        return session.getId() + ":" + queueClientId.strip();
     }
 
     @GetMapping("/summary")

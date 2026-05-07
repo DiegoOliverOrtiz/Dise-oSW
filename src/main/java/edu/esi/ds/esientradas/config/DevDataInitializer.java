@@ -49,12 +49,12 @@ public class DevDataInitializer {
 
         Espectaculo natos = espectaculoConButacas("Natos y Waor", LocalDateTime.of(2026, 3, 14, 18, 0), teatro);
         natos.setAltaDemanda(true);
-        natos.setAperturaTaquilla(LocalDateTime.of(2026, 5, 1, 11, 2));
+        natos.setAperturaTaquilla(LocalDateTime.of(2026, 5, 7, 18, 0));
         espectaculoDao.save(natos);
     }
 
     private void ensureHighDemandDemoEvents() {
-        markHighDemand("Natos y Waor", LocalDateTime.of(2026, 5, 1, 11, 2));
+        markHighDemand("Natos y Waor", LocalDateTime.of(2026, 5, 7, 18, 0));
         unmarkHighDemand("Radiohead");
     }
 
