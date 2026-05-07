@@ -18,6 +18,8 @@ import edu.esi.ds.esientradas.model.Entrada;
 import edu.esi.ds.esientradas.model.Escenario;
 import edu.esi.ds.esientradas.model.Espectaculo;
 import edu.esi.ds.esientradas.services.BusquedaService;
+import edu.esi.ds.esientradas.services.ColaVirtualService;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
@@ -30,6 +32,9 @@ public class BusquedaController {
     @Autowired //Cuando arranca el servicio en esta clase lo crea, si lo encuentra en otro lado no lo hace
     private BusquedaService service;
 
+    @Autowired
+    private ColaVirtualService colaVirtualService;
+
     @GetMapping("/getEspectaculos")
     public List<DtoEspectaculo> getEspectaculos(@RequestParam(required = false) @Size(max = 80) String artista) {
         List<Espectaculo> espectaculos = this.service.getEspectaculosPorArtista(safeText(artista, 80));
@@ -39,6 +44,8 @@ public class BusquedaController {
             dto.setArtista(e.getArtista());
             dto.setFecha(e.getFecha());
             dto.setEscenario(e.getEscenario().getNombre());
+            dto.setAltaDemanda(e.isAltaDemanda());
+            dto.setAperturaTaquilla(e.getAperturaTaquilla());
             return dto;
         }).toList();
         return dtos;
@@ -53,6 +60,8 @@ public class BusquedaController {
             dto.setArtista(e.getArtista());
             dto.setFecha(e.getFecha());
             dto.setEscenario(e.getEscenario().getNombre());
+            dto.setAltaDemanda(e.isAltaDemanda());
+            dto.setAperturaTaquilla(e.getAperturaTaquilla());
             return dto;
         }).toList();
         return dtos;
@@ -69,7 +78,12 @@ public class BusquedaController {
     }
 
     @GetMapping("/getEntradasDisponibles")
-    public List<DtoEntradaCompra> getEntradasDisponibles(@RequestParam @Positive Long espectaculoId) {
+    public List<DtoEntradaCompra> getEntradasDisponibles(
+        HttpSession session,
+        @RequestParam @Positive Long espectaculoId,
+        @org.springframework.web.bind.annotation.RequestHeader(value = "X-Queue-Access", required = false) String queueAccessToken
+    ) {
+        colaVirtualService.assertAccess(espectaculoId, session.getId(), queueAccessToken);
         return this.service.getEntradasDisponibles(espectaculoId);
     }
 
@@ -98,6 +112,8 @@ public class BusquedaController {
         dto.setArtista(e.getArtista());
         dto.setFecha(e.getFecha());
         dto.setEscenario(e.getEscenario().getNombre());
+        dto.setAltaDemanda(e.isAltaDemanda());
+        dto.setAperturaTaquilla(e.getAperturaTaquilla());
         dto.setEntradas(this.service.getEntradas(id));
         return dto;
     }

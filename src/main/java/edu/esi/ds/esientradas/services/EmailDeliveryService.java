@@ -7,10 +7,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import edu.esi.ds.esientradas.dao.EmailQueueDao;
@@ -27,6 +30,9 @@ public class EmailDeliveryService {
 
     @Value("${email.max-attempts:5}")
     private int maxAttempts;
+
+    @Value("${app.internal.api.secret:}")
+    private String internalApiSecret;
 
     @Autowired
     private EmailQueueDao queueDao;
@@ -60,15 +66,33 @@ public class EmailDeliveryService {
     public void trySendNow(EmailQueue q) {
         try {
             var body = java.util.Map.of("to", q.getToAddress(), "subject", q.getSubject(), "html", q.getBodyHtml());
-            ResponseEntity<String> resp = rest.postForEntity(this.externalUrl, body, String.class);
+            HttpHeaders headers = new HttpHeaders();
+            if (internalApiSecret != null && !internalApiSecret.isBlank()) {
+                headers.set("X-Internal-Secret", internalApiSecret);
+            }
+            HttpEntity<java.util.Map<String, String>> request = new HttpEntity<>(body, headers);
+            ResponseEntity<String> resp = rest.postForEntity(this.externalUrl, request, String.class);
             q.setLastAttempt(System.currentTimeMillis());
             q.setAttempts(q.getAttempts() + 1);
             if (resp.getStatusCode().is2xxSuccessful()) {
                 q.setStatus(EmailStatus.SENT);
+                q.setLastError(null);
+            } else {
+                q.setStatus(EmailStatus.PENDING);
+                q.setLastError("Respuesta no exitosa de esiusuarios: HTTP " + resp.getStatusCode().value());
+            }
+            this.queueDao.save(q);
+        } catch (HttpStatusCodeException ex) {
+            q.setLastAttempt(System.currentTimeMillis());
+            q.setAttempts(q.getAttempts() + 1);
+            if (q.getAttempts() >= this.maxAttempts) {
+                q.setStatus(EmailStatus.FAILED);
             } else {
                 q.setStatus(EmailStatus.PENDING);
             }
+            q.setLastError(this.safeError("HTTP " + ex.getStatusCode().value() + " " + ex.getResponseBodyAsString()));
             this.queueDao.save(q);
+            throw ex;
         } catch (RestClientException ex) {
             q.setLastAttempt(System.currentTimeMillis());
             q.setAttempts(q.getAttempts() + 1);
@@ -77,6 +101,7 @@ public class EmailDeliveryService {
             } else {
                 q.setStatus(EmailStatus.PENDING);
             }
+            q.setLastError(this.safeError(ex.getMessage()));
             this.queueDao.save(q);
             throw ex;
         }
@@ -108,5 +133,13 @@ public class EmailDeliveryService {
         } catch (Exception e) {
             log.error("Error while retrying pending emails: {}", e.getMessage());
         }
+    }
+
+    private String safeError(String detail) {
+        if (detail == null || detail.isBlank()) {
+            return "Sin detalle";
+        }
+        String cleaned = detail.replaceAll("xkeysib-[A-Za-z0-9_-]+", "xkeysib-***");
+        return cleaned.length() <= 1000 ? cleaned : cleaned.substring(0, 1000);
     }
 }

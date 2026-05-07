@@ -22,6 +22,8 @@ public class Espectaculo {
     private Long id;
     private String artista;
     private LocalDateTime fecha;
+    private boolean altaDemanda;
+    private LocalDateTime aperturaTaquilla;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "escenario_id", nullable = false)
@@ -52,6 +54,22 @@ public class Espectaculo {
 
     public void setFecha(LocalDateTime fecha) {
         this.fecha = fecha;
+    }
+
+    public boolean isAltaDemanda() {
+        return altaDemanda;
+    }
+
+    public void setAltaDemanda(boolean altaDemanda) {
+        this.altaDemanda = altaDemanda;
+    }
+
+    public LocalDateTime getAperturaTaquilla() {
+        return aperturaTaquilla;
+    }
+
+    public void setAperturaTaquilla(LocalDateTime aperturaTaquilla) {
+        this.aperturaTaquilla = aperturaTaquilla;
     }
 
     @JsonIgnore

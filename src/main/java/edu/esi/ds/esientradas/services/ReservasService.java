@@ -3,6 +3,7 @@ package edu.esi.ds.esientradas.services;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -29,15 +30,21 @@ public class ReservasService {
     @Transactional
     public Long reservar(Long idEntrada, String sesionId) {
         // Intentar reservar de forma condicional en la base de datos para evitar carreras
-        int updated = this.dao.updateEstadoIf(idEntrada, Estado.RESERVADA, Estado.DISPONIBLE);
+        int updated = this.dao.updateEstadoIf(idEntrada, Estado.RESERVADA.name(), Estado.DISPONIBLE.name());
         if (updated == 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "La entrada no está disponible para reservar");
         }
         Entrada entrada = this.dao.findById(idEntrada).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrada no encontrada"));
-        Token token = new Token();
+        List<Token> tokensEntrada = this.tokenDao.findAllByEntradaId(idEntrada);
+        Token token = tokensEntrada.isEmpty() ? new Token() : tokensEntrada.get(0);
         token.setEntrada(entrada);
         token.setSesionId(sesionId);
-        this.tokenDao.save(token);
+        token.setHoraActiva(System.currentTimeMillis());
+        try {
+            this.tokenDao.saveAndFlush(token);
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "La entrada no está disponible para reservar");
+        }
         return entrada.getPrecio();
     }
 
@@ -68,7 +75,7 @@ public class ReservasService {
         for (Token token : tokensCaducados) {
             Entrada entrada = token.getEntrada();
             if (entrada != null && entrada.getEstado() == Estado.RESERVADA) {
-                this.dao.updateEstado(entrada.getId(), Estado.DISPONIBLE);
+                this.dao.updateEstado(entrada.getId(), Estado.DISPONIBLE.name());
             }
         }
 
