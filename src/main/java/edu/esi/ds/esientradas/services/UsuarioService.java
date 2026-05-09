@@ -3,9 +3,9 @@ package edu.esi.ds.esientradas.services;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
@@ -31,12 +31,12 @@ public class UsuarioService {
             HttpEntity<Map<String, String>> entity = new HttpEntity<>(Map.of("token", userToken), headers);
             String username = rest.postForObject(endpoint, entity, String.class);
             if(username == null || username.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token invalido");
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token inválido");
             }
             return username;
         }
         catch(HttpClientErrorException.Unauthorized e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token invalido");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token inválido");
         }
         catch(HttpClientErrorException.Forbidden e) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No se pudo validar el token de usuario");
