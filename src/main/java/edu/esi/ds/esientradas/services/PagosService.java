@@ -1,6 +1,8 @@
 package edu.esi.ds.esientradas.services;
 
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -28,6 +30,7 @@ import edu.esi.ds.esientradas.model.Token;
 public class PagosService {
 
     private static final Logger log = LoggerFactory.getLogger(PagosService.class);
+    private static final long RESERVA_TTL_MILLIS = 10 * 60 * 1000;
 
     @Value("${stripe.secret-key:}")
     private String stripeSecretKey;
@@ -44,7 +47,10 @@ public class PagosService {
     @Autowired
     private EmailDeliveryService emailDeliveryService;
 
-    @Transactional(readOnly = true)
+    @Autowired
+    private ColaVirtualService colaVirtualService;
+
+    @Transactional
     public DtoPagoIntent crearIntentoPago(String sesionId, String userEmail) {
         List<Token> reservas = this.getReservas(sesionId);
         long amount = reservas.stream().mapToLong(token -> token.getEntrada().getPrecio()).sum();
@@ -85,8 +91,16 @@ public class PagosService {
         PaymentIntent paymentIntent = this.recuperarPago(paymentIntentId);
         this.validarSesion(paymentIntent, sesionId);
 
-        List<Token> reservas = this.tokenDao.findBySesionId(sesionId);
+        List<Token> reservas = this.getReservas(sesionId);
+        this.validarPagoCoincideConReservas(paymentIntent, reservas);
         if ("succeeded".equals(paymentIntent.getStatus())) {
+            String userEmail = this.resolveUserEmail(authenticatedUserEmail, paymentIntent);
+            List<Long> espectaculoIds = reservas.stream()
+                    .filter(token -> token.getEntrada() != null && token.getEntrada().getEspectaculo() != null)
+                    .map(token -> token.getEntrada().getEspectaculo().getId())
+                    .distinct()
+                    .toList();
+
             if (!reservas.isEmpty()) {
                 for (Token token : reservas) {
                     int updated = this.entradaDao.updateEstadoIf(token.getEntrada().getId(), Estado.VENDIDA.name(), Estado.RESERVADA.name());
@@ -98,8 +112,14 @@ public class PagosService {
                 this.tokenDao.deleteBySesionId(sesionId);
             }
 
+            if (userEmail != null && !userEmail.isBlank()) {
+                String queueIdentity = "user:" + userEmail;
+                for (Long espectaculoId : espectaculoIds) {
+                    this.colaVirtualService.leave(espectaculoId, queueIdentity);
+                }
+            }
+
             boolean emailScheduled = false;
-            String userEmail = this.resolveUserEmail(authenticatedUserEmail, paymentIntent);
             if (userEmail != null && !userEmail.isBlank()) {
                 String html = generarHtmlTicket(reservas);
                 this.emailDeliveryService.enqueueAndTrySend(
@@ -145,6 +165,17 @@ public class PagosService {
         if (reservas.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No hay entradas reservadas para pagar");
         }
+        long horaLimite = System.currentTimeMillis() - RESERVA_TTL_MILLIS;
+        boolean caducada = reservas.stream().anyMatch(token -> token.getHoraActiva() < horaLimite);
+        if (caducada) {
+            for (Token token : reservas) {
+                if (token.getEntrada() != null && token.getEntrada().getEstado() == Estado.RESERVADA) {
+                    this.entradaDao.updateEstado(token.getEntrada().getId(), Estado.DISPONIBLE.name());
+                }
+            }
+            this.tokenDao.deleteBySesionId(sesionId);
+            throw new ResponseStatusException(HttpStatus.GONE, "La reserva ha caducado");
+        }
         return reservas;
     }
 
@@ -171,6 +202,50 @@ public class PagosService {
         if (paymentSessionId == null || !paymentSessionId.equals(sesionId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ese pago no pertenece a la sesion actual");
         }
+    }
+
+    void validarPagoCoincideConReservas(PaymentIntent paymentIntent, List<Token> reservas) {
+        long expectedAmount = reservas.stream()
+                .map(Token::getEntrada)
+                .mapToLong(entrada -> entrada != null && entrada.getPrecio() != null ? entrada.getPrecio() : 0L)
+                .sum();
+        Long stripeAmount = paymentIntent.getAmount();
+        if (stripeAmount == null || stripeAmount.longValue() != expectedAmount) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El importe del pago no coincide con las reservas actuales");
+        }
+
+        String currency = paymentIntent.getCurrency();
+        if (currency == null || !"eur".equalsIgnoreCase(currency)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "La moneda del pago no coincide con la compra");
+        }
+
+        String metadataEntryIds = paymentIntent.getMetadata() == null ? null : paymentIntent.getMetadata().get("entryIds");
+        if (!entryIdsFromMetadata(metadataEntryIds).equals(entryIdsFromReservations(reservas))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Las entradas del pago no coinciden con las reservas actuales");
+        }
+    }
+
+    private Set<Long> entryIdsFromReservations(List<Token> reservas) {
+        return reservas.stream()
+                .map(Token::getEntrada)
+                .filter(entrada -> entrada != null && entrada.getId() != null)
+                .map(entrada -> entrada.getId())
+                .collect(Collectors.toCollection(TreeSet::new));
+    }
+
+    private Set<Long> entryIdsFromMetadata(String value) {
+        Set<Long> ids = new TreeSet<>();
+        if (value == null || value.isBlank()) {
+            return ids;
+        }
+        for (String part : value.split(",")) {
+            try {
+                ids.add(Long.parseLong(part.trim()));
+            } catch (NumberFormatException e) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Las entradas del pago no son validas");
+            }
+        }
+        return ids;
     }
 
     private String serializeEntryIds(List<Token> reservas) {

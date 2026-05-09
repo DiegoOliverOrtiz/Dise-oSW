@@ -13,6 +13,7 @@ public class DtoColaEstado {
     private String accessToken;
     private LocalDateTime aperturaTaquilla;
     private String message;
+    private boolean entradasAgotadas;
 
     public boolean isRequiereCola() { return requiereCola; }
     public void setRequiereCola(boolean requiereCola) { this.requiereCola = requiereCola; }
@@ -34,4 +35,6 @@ public class DtoColaEstado {
     public void setAperturaTaquilla(LocalDateTime aperturaTaquilla) { this.aperturaTaquilla = aperturaTaquilla; }
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
+    public boolean isEntradasAgotadas() { return entradasAgotadas; }
+    public void setEntradasAgotadas(boolean entradasAgotadas) { this.entradasAgotadas = entradasAgotadas; }
 }

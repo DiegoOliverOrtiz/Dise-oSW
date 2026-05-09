@@ -19,6 +19,9 @@ import edu.esi.ds.esientradas.model.Escenario;
 import edu.esi.ds.esientradas.model.Espectaculo;
 import edu.esi.ds.esientradas.services.BusquedaService;
 import edu.esi.ds.esientradas.services.ColaVirtualService;
+import edu.esi.ds.esientradas.services.UsuarioService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
@@ -28,12 +31,16 @@ import jakarta.validation.constraints.Size;
 @RequestMapping("/busqueda")
 @Validated
 public class BusquedaController {
+    private static final String SESSION_COOKIE = "session_id";
 
     @Autowired //Cuando arranca el servicio en esta clase lo crea, si lo encuentra en otro lado no lo hace
     private BusquedaService service;
 
     @Autowired
     private ColaVirtualService colaVirtualService;
+
+    @Autowired
+    private UsuarioService usuarioService;
 
     @GetMapping("/getEspectaculos")
     public List<DtoEspectaculo> getEspectaculos(@RequestParam(required = false) @Size(max = 80) String artista) {
@@ -79,20 +86,38 @@ public class BusquedaController {
 
     @GetMapping("/getEntradasDisponibles")
     public List<DtoEntradaCompra> getEntradasDisponibles(
+        HttpServletRequest request,
         HttpSession session,
         @RequestParam @Positive Long espectaculoId,
         @org.springframework.web.bind.annotation.RequestHeader(value = "X-Queue-Access", required = false) String queueAccessToken,
         @org.springframework.web.bind.annotation.RequestHeader(value = "X-Queue-Client", required = false) String queueClientId
     ) {
-        colaVirtualService.assertAccess(espectaculoId, queueIdentity(session, queueClientId), queueAccessToken);
+        colaVirtualService.assertAccess(espectaculoId, queueIdentity(request, session, queueClientId), queueAccessToken);
         return this.service.getEntradasDisponibles(espectaculoId);
     }
 
-    private String queueIdentity(HttpSession session, String queueClientId) {
+    private String queueIdentity(HttpServletRequest request, HttpSession session, String queueClientId) {
+        String userToken = sessionToken(request);
+        if (userToken != null && !userToken.isBlank()) {
+            return "user:" + usuarioService.checkToken(userToken);
+        }
         if (queueClientId == null || queueClientId.isBlank()) {
             return session.getId();
         }
         return session.getId() + ":" + queueClientId.strip();
+    }
+
+    private String sessionToken(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+        for (Cookie cookie : cookies) {
+            if (SESSION_COOKIE.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
     }
 
     @GetMapping("/getNumeroDeEntradas")

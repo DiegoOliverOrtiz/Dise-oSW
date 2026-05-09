@@ -20,6 +20,7 @@ import edu.esi.ds.esientradas.dao.EspectaculoDao;
 import edu.esi.ds.esientradas.dto.DtoColaEstado;
 import edu.esi.ds.esientradas.model.Entrada;
 import edu.esi.ds.esientradas.model.Espectaculo;
+import edu.esi.ds.esientradas.model.Estado;
 
 @Service
 public class ColaVirtualService {
@@ -45,6 +46,10 @@ public class ColaVirtualService {
             estado.setMessage("La taquilla virtual todavia no esta abierta.");
             return estado;
         }
+        if (isSoldOut(espectaculoId)) {
+            leave(espectaculoId, sesionId);
+            return soldOut(espectaculo);
+        }
 
         cleanupExpiredTurn(espectaculoId);
         TurnoActivo turno = turnos.get(espectaculoId);
@@ -68,6 +73,10 @@ public class ColaVirtualService {
         cleanupExpiredTurn(espectaculoId);
         if (isOpen(espectaculo)) {
             promoteIfPossible(espectaculoId);
+        }
+        if (isSoldOut(espectaculoId)) {
+            leave(espectaculoId, sesionId);
+            return soldOut(espectaculo);
         }
 
         TurnoActivo turno = turnos.get(espectaculoId);
@@ -189,6 +198,16 @@ public class ColaVirtualService {
         return estado;
     }
 
+    private DtoColaEstado soldOut(Espectaculo espectaculo) {
+        DtoColaEstado estado = base(espectaculo);
+        estado.setTaquillaAbierta(true);
+        estado.setEnCola(false);
+        estado.setTurnoActivo(false);
+        estado.setEntradasAgotadas(true);
+        estado.setMessage("Las entradas para este espectaculo se han agotado.");
+        return estado;
+    }
+
     private DtoColaEstado base(Espectaculo espectaculo) {
         DtoColaEstado estado = new DtoColaEstado();
         estado.setRequiereCola(requiresQueue(espectaculo));
@@ -203,6 +222,10 @@ public class ColaVirtualService {
 
     private boolean isOpen(Espectaculo espectaculo) {
         return espectaculo.getAperturaTaquilla() == null || !LocalDateTime.now().isBefore(espectaculo.getAperturaTaquilla());
+    }
+
+    private boolean isSoldOut(Long espectaculoId) {
+        return entradaDao.countByEspectaculoIdAndEstado(espectaculoId, Estado.DISPONIBLE) == 0;
     }
 
     private Espectaculo requireEspectaculo(Long espectaculoId) {
