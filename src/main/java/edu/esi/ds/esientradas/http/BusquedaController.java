@@ -126,10 +126,7 @@ public class BusquedaController {
         return dto;
     }
 
-    @GetMapping("/saludar/{nombre}")
-    public String saludar(@PathVariable @Size(max = 80) String nombre, @RequestParam @Size(max = 80) String apellido) {
-        return "Hola " + safeText(nombre, 80) + " " + safeText(apellido, 80) + " bienvenido a ESI Entradas";
-    }
+
 
     private String safeText(String value, int maxLength) {
         String cleaned = value == null ? "" : value.strip().replaceAll("\\p{Cntrl}", "");

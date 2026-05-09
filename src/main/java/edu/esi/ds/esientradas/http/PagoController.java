@@ -45,16 +45,12 @@ public class PagoController {
         String userEmail = requireAuthenticatedUser(request);
         session.setAttribute("userEmail", userEmail);
         DtoPagoResultado resultado = this.pagosService.confirmarPago(session.getId(), paymentIntentId, userEmail);
-        if ("succeeded".equals(resultado.getStatus())) {
-            session.removeAttribute("precioTotal");
-        }
         return resultado;
     }
 
     @PostMapping("/cancelar")
     public void cancelarPago(HttpSession session) {
         this.pagosService.cancelarPago(session.getId());
-        session.removeAttribute("precioTotal");
     }
 
     private String requireAuthenticatedUser(HttpServletRequest request) {

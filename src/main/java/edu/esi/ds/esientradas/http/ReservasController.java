@@ -31,16 +31,8 @@ public class ReservasController {
     
     @PutMapping("/reservar")
     public Long reservar(HttpSession session, @RequestParam @Positive Long idEntrada) {
-        Long precioEntrada = this.service.reservar(idEntrada, session.getId());
-        Long precioTotal = (Long) session.getAttribute("precioTotal");
-        if(precioTotal == null) {
-            precioTotal = precioEntrada;
-            session.setAttribute("precioTotal", precioTotal);
-        } else {
-            precioTotal += precioEntrada;   
-            session.setAttribute("precioTotal", precioTotal);
-        }
-        return precioTotal;
+        this.service.reservar(idEntrada, session.getId());
+        return this.service.getResumen(session.getId()).getPrecioTotal();
     }
 
     @PutMapping("/reservar-lote")
@@ -51,15 +43,8 @@ public class ReservasController {
         @org.springframework.web.bind.annotation.RequestHeader(value = "X-Queue-Client", required = false) String queueClientId
     ) {
         colaVirtualService.assertAccessForEntradas(request.getEntradaIds(), queueIdentity(session, queueClientId), queueAccessToken);
-        Long precioEntrada = this.service.reservarEntradas(request.getEntradaIds(), session.getId());
-        Long precioTotal = (Long) session.getAttribute("precioTotal");
-        if (precioTotal == null) {
-            precioTotal = precioEntrada;
-        } else {
-            precioTotal += precioEntrada;
-        }
-        session.setAttribute("precioTotal", precioTotal);
-        return new DtoReservaResponse(precioTotal, request.getEntradaIds().size());
+        this.service.reservarEntradas(request.getEntradaIds(), session.getId());
+        return this.service.getResumen(session.getId());
     }
 
     private String queueIdentity(HttpSession session, String queueClientId) {
