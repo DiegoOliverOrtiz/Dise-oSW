@@ -3,6 +3,7 @@ package edu.esi.ds.esientradas.http;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,47 +31,82 @@ public class PagoController {
     private UsuarioService usuarioService;
 
     @PostMapping("/payment-intent")
-    public DtoPagoIntent createPaymentIntent(HttpServletRequest request, HttpSession session) {
+    public DtoPagoIntent createPaymentIntent(
+        HttpServletRequest request,
+        HttpSession session,
+        @RequestHeader(value = "X-Queue-Client", required = false) String queueClientId
+    ) {
         String userEmail = requireAuthenticatedUser(request);
         session.setAttribute("userEmail", userEmail);
-        return this.pagosService.crearIntentoPago(session.getId(), userEmail);
+
+        return this.pagosService.crearIntentoPago(
+            reservaIdentity(session, queueClientId),
+            userEmail
+        );
     }
 
     @PostMapping("/confirmar")
     public DtoPagoResultado confirmarPago(
         HttpServletRequest request,
         HttpSession session,
-        @RequestParam @Size(max = 120) @Pattern(regexp = "^[A-Za-z0-9_\\-]+$") String paymentIntentId
+        @RequestParam
+        @Size(max = 120)
+        @Pattern(regexp = "^[A-Za-z0-9_-]+$")
+        String paymentIntentId,
+        @RequestHeader(value = "X-Queue-Client", required = false) String queueClientId
     ) {
         String userEmail = requireAuthenticatedUser(request);
         session.setAttribute("userEmail", userEmail);
-        DtoPagoResultado resultado = this.pagosService.confirmarPago(session.getId(), paymentIntentId, userEmail);
-        return resultado;
+
+        return this.pagosService.confirmarPago(
+            reservaIdentity(session, queueClientId),
+            paymentIntentId,
+            userEmail
+        );
     }
 
     @PostMapping("/cancelar")
-    public void cancelarPago(HttpSession session) {
-        this.pagosService.cancelarPago(session.getId());
+    public void cancelarPago(
+        HttpSession session,
+        @RequestHeader(value = "X-Queue-Client", required = false) String queueClientId
+    ) {
+        this.pagosService.cancelarPago(reservaIdentity(session, queueClientId));
+    }
+
+    private String reservaIdentity(HttpSession session, String queueClientId) {
+        if (queueClientId == null || queueClientId.isBlank()) {
+            return session.getId();
+        }
+
+        return session.getId() + ":" + queueClientId.strip();
     }
 
     private String requireAuthenticatedUser(HttpServletRequest request) {
         String token = sessionToken(request);
+
         if (token == null || token.isBlank()) {
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Autenticacion requerida");
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.UNAUTHORIZED,
+                "Autenticacion requerida"
+            );
         }
+
         return this.usuarioService.checkToken(token);
     }
 
     private String sessionToken(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
+
         if (cookies == null) {
             return null;
         }
+
         for (Cookie cookie : cookies) {
             if (SESSION_COOKIE.equals(cookie.getName())) {
                 return cookie.getValue();
             }
         }
+
         return null;
     }
 }
