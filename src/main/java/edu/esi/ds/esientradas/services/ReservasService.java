@@ -97,6 +97,7 @@ public class ReservasService {
     public void liberarReservasCaducadas() {
         long horaLimite = System.currentTimeMillis() - RESERVA_TTL_MILLIS;
         List<Token> tokensCaducados = this.tokenDao.findExpiredWithEntrada(horaLimite);
+        List<Entrada> reservasHuerfanas = this.dao.findByEstadoWithoutToken(Estado.RESERVADA);
 
         for (Token token : tokensCaducados) {
             Entrada entrada = token.getEntrada();
@@ -111,6 +112,14 @@ public class ReservasService {
 
         if (!tokensCaducados.isEmpty()) {
             this.tokenDao.deleteAll(tokensCaducados);
+        }
+
+        for (Entrada entrada : reservasHuerfanas) {
+            this.dao.updateEstadoIf(
+                entrada.getId(),
+                Estado.DISPONIBLE.name(),
+                Estado.RESERVADA.name()
+            );
         }
     }
 }

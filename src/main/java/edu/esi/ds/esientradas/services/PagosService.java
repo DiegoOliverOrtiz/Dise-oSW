@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,8 @@ import edu.esi.ds.esientradas.dao.EntradaDao;
 import edu.esi.ds.esientradas.dao.TokenDao;
 import edu.esi.ds.esientradas.dto.DtoPagoIntent;
 import edu.esi.ds.esientradas.dto.DtoPagoResultado;
+import edu.esi.ds.esientradas.events.EmailQueueCreatedEvent;
+import edu.esi.ds.esientradas.model.EmailQueue;
 import edu.esi.ds.esientradas.model.Estado;
 import edu.esi.ds.esientradas.model.Token;
 
@@ -49,6 +52,9 @@ public class PagosService {
 
     @Autowired
     private ColaVirtualService colaVirtualService;
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public DtoPagoIntent crearIntentoPago(String sesionId, String userEmail) {
@@ -122,11 +128,12 @@ public class PagosService {
             boolean emailScheduled = false;
             if (userEmail != null && !userEmail.isBlank()) {
                 String html = generarHtmlTicket(reservas);
-                this.emailDeliveryService.enqueueAndTrySend(
+                EmailQueue queuedEmail = this.emailDeliveryService.enqueue(
                         userEmail,
                         "Tus entradas - ESI Entradas",
                         html,
                         paymentIntentId);
+                this.eventPublisher.publishEvent(new EmailQueueCreatedEvent(queuedEmail.getId()));
                 emailScheduled = true;
             } else {
                 log.warn("No hay email de usuario autenticado ni metadata userEmail en el paymentIntent {}", paymentIntentId);
