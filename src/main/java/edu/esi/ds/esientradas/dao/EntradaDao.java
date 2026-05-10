@@ -15,6 +15,9 @@ public interface EntradaDao extends JpaRepository<Entrada, Long> { //Entidad que
     List<Entrada> findByEspectaculoId(Long espectaculoId);
     List<Entrada> findByEspectaculoIdAndEstadoOrderByIdAsc(Long espectaculoId, Estado estado);
 
+    @Query("SELECT e FROM Entrada e WHERE e.estado = :estado AND NOT EXISTS (SELECT t FROM Token t WHERE t.entrada = e)")
+    List<Entrada> findByEstadoWithoutToken(@Param("estado") Estado estado);
+
     @Query(value = "UPDATE entrada SET estado = :estado WHERE id = :idEntrada", nativeQuery = true)
     @Modifying
     void updateEstado(@Param("idEntrada") Long idEntrada, @Param("estado") String estado);
