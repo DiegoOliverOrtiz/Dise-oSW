@@ -38,47 +38,29 @@ public class PagoController {
     ) {
         String userEmail = requireAuthenticatedUser(request);
         session.setAttribute("userEmail", userEmail);
-
-        return this.pagosService.crearIntentoPago(
-            reservaIdentity(session, queueClientId),
-            userEmail
-        );
+        return this.pagosService.crearIntentoPago(reservationIdentity(session, queueClientId), userEmail);
     }
 
     @PostMapping("/confirmar")
     public DtoPagoResultado confirmarPago(
         HttpServletRequest request,
         HttpSession session,
-        @RequestParam
-        @Size(max = 120)
-        @Pattern(regexp = "^[A-Za-z0-9_-]+$")
-        String paymentIntentId,
-        @RequestHeader(value = "X-Queue-Client", required = false) String queueClientId
+        @RequestHeader(value = "X-Queue-Client", required = false) String queueClientId,
+        @RequestParam @Size(max = 120) @Pattern(regexp = "^[A-Za-z0-9_\\-]+$") String paymentIntentId
     ) {
         String userEmail = requireAuthenticatedUser(request);
         session.setAttribute("userEmail", userEmail);
-
-        return this.pagosService.confirmarPago(
-            reservaIdentity(session, queueClientId),
-            paymentIntentId,
-            userEmail
-        );
+        DtoPagoResultado resultado = this.pagosService.confirmarPago(reservationIdentity(session, queueClientId), paymentIntentId, userEmail);
+        return resultado;
     }
 
     @PostMapping("/cancelar")
     public void cancelarPago(
         HttpSession session,
-        @RequestHeader(value = "X-Queue-Client", required = false) String queueClientId
+        @RequestHeader(value = "X-Queue-Client", required = false) String queueClientId,
+        @RequestParam(value = "clientId", required = false) String queryClientId
     ) {
-        this.pagosService.cancelarPago(reservaIdentity(session, queueClientId));
-    }
-
-    private String reservaIdentity(HttpSession session, String queueClientId) {
-        if (queueClientId == null || queueClientId.isBlank()) {
-            return session.getId();
-        }
-
-        return session.getId() + ":" + queueClientId.strip();
+        this.pagosService.cancelarPago(reservationIdentity(session, queueClientId != null ? queueClientId : queryClientId));
     }
 
     private String requireAuthenticatedUser(HttpServletRequest request) {
@@ -108,5 +90,12 @@ public class PagoController {
         }
 
         return null;
+    }
+
+    private String reservationIdentity(HttpSession session, String queueClientId) {
+        if (queueClientId == null || queueClientId.isBlank()) {
+            return session.getId();
+        }
+        return session.getId() + ":" + queueClientId.strip();
     }
 }
