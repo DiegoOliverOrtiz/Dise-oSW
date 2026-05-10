@@ -17,34 +17,59 @@ import edu.esi.ds.esientradas.model.Entrada;
 import edu.esi.ds.esientradas.model.Estado;
 import edu.esi.ds.esientradas.model.Token;
 
-
 @Service
 public class ReservasService {
     private static final long RESERVA_TTL_MILLIS = 10 * 60 * 1000;
 
     @Autowired
     private EntradaDao dao;
+
     @Autowired
     private TokenDao tokenDao;
 
     @Transactional
     public Long reservar(Long idEntrada, String sesionId) {
-        // Intentar reservar de forma condicional en la base de datos para evitar carreras
-        int updated = this.dao.updateEstadoIf(idEntrada, Estado.RESERVADA.name(), Estado.DISPONIBLE.name());
+        Entrada entrada = this.dao.findById(idEntrada)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrada no encontrada"));
+
+        List<Token> tokensEntrada = this.tokenDao.findAllByEntradaId(idEntrada);
+
+        for (Token tokenExistente : tokensEntrada) {
+            if (
+                tokenExistente.getSesionId() != null
+                && tokenExistente.getSesionId().equals(sesionId)
+                && entrada.getEstado() == Estado.RESERVADA
+            ) {
+                tokenExistente.setHoraActiva(System.currentTimeMillis());
+                this.tokenDao.saveAndFlush(tokenExistente);
+                return entrada.getPrecio();
+            }
+        }
+
+        int updated = this.dao.updateEstadoIf(
+            idEntrada,
+            Estado.RESERVADA.name(),
+            Estado.DISPONIBLE.name()
+        );
+
         if (updated == 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "La entrada no está disponible para reservar");
         }
-        Entrada entrada = this.dao.findById(idEntrada).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrada no encontrada"));
-        List<Token> tokensEntrada = this.tokenDao.findAllByEntradaId(idEntrada);
+
+        entrada = this.dao.findById(idEntrada)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrada no encontrada"));
+
         Token token = tokensEntrada.isEmpty() ? new Token() : tokensEntrada.get(0);
         token.setEntrada(entrada);
         token.setSesionId(sesionId);
         token.setHoraActiva(System.currentTimeMillis());
+
         try {
             this.tokenDao.saveAndFlush(token);
         } catch (DataIntegrityViolationException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "La entrada no está disponible para reservar");
         }
+
         return entrada.getPrecio();
     }
 
@@ -53,6 +78,7 @@ public class ReservasService {
         if (entradaIds == null || entradaIds.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debes seleccionar al menos una entrada");
         }
+
         long precioTotal = 0L;
         for (Long idEntrada : entradaIds) {
             precioTotal += this.reservar(idEntrada, sesionId);
@@ -75,7 +101,11 @@ public class ReservasService {
         for (Token token : tokensCaducados) {
             Entrada entrada = token.getEntrada();
             if (entrada != null && entrada.getEstado() == Estado.RESERVADA) {
-                this.dao.updateEstado(entrada.getId(), Estado.DISPONIBLE.name());
+                this.dao.updateEstadoIf(
+                    entrada.getId(),
+                    Estado.DISPONIBLE.name(),
+                    Estado.RESERVADA.name()
+                );
             }
         }
 

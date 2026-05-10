@@ -152,9 +152,18 @@ public class PagosService {
     @Transactional
     public void cancelarPago(String sesionId) {
         List<Token> reservas = this.tokenDao.findBySesionId(sesionId);
+
         for (Token token : reservas) {
-            this.entradaDao.updateEstado(token.getEntrada().getId(), Estado.DISPONIBLE.name());
+            if (token.getEntrada() == null) {
+                continue;
+            }
+
+            this.entradaDao.updateEstadoIf(
+                    token.getEntrada().getId(),
+                    Estado.DISPONIBLE.name(),
+                    Estado.RESERVADA.name());
         }
+
         if (!reservas.isEmpty()) {
             this.tokenDao.deleteBySesionId(sesionId);
         }

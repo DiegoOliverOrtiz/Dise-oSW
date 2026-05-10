@@ -1,16 +1,16 @@
 package edu.esi.ds.esientradas.http;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 import edu.esi.ds.esientradas.dto.DtoReservaRequest;
 import edu.esi.ds.esientradas.dto.DtoReservaResponse;
@@ -22,8 +22,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
-
-
 
 @RestController
 @RequestMapping("/reservas")
@@ -76,6 +74,14 @@ public class ReservasController {
         return this.service.getResumen(reservaId);
     }
 
+    @GetMapping("/summary")
+    public DtoReservaResponse resumen(
+        HttpSession session,
+        @RequestHeader(value = "X-Queue-Client", required = false) String queueClientId
+    ) {
+        return this.service.getResumen(reservationIdentity(session, queueClientId));
+    }
+
     private String queueIdentity(HttpServletRequest request, HttpSession session, String queueClientId) {
         String userToken = sessionToken(request);
         if (userToken != null && !userToken.isBlank()) {
@@ -98,14 +104,6 @@ public class ReservasController {
             }
         }
         return null;
-    }
-
-    @GetMapping("/summary")
-    public DtoReservaResponse resumen(
-        HttpSession session,
-        @RequestHeader(value = "X-Queue-Client", required = false) String queueClientId
-    ) {
-        return this.service.getResumen(reservationIdentity(session, queueClientId));
     }
 
     private String reservationIdentity(HttpSession session, String queueClientId) {

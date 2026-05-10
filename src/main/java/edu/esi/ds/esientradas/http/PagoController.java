@@ -65,22 +65,30 @@ public class PagoController {
 
     private String requireAuthenticatedUser(HttpServletRequest request) {
         String token = sessionToken(request);
+
         if (token == null || token.isBlank()) {
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Autenticacion requerida");
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.UNAUTHORIZED,
+                "Autenticacion requerida"
+            );
         }
+
         return this.usuarioService.checkToken(token);
     }
 
     private String sessionToken(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
+
         if (cookies == null) {
             return null;
         }
+
         for (Cookie cookie : cookies) {
             if (SESSION_COOKIE.equals(cookie.getName())) {
                 return cookie.getValue();
             }
         }
+
         return null;
     }
 

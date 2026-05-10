@@ -5,8 +5,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -126,18 +128,23 @@ public class ColaVirtualService {
         if (entradaIds == null || entradaIds.isEmpty()) {
             return;
         }
-        Long espectaculoId = null;
+
+        Set<Long> espectaculoIds = new LinkedHashSet<>();
+
         for (Long entradaId : entradaIds) {
             Entrada entrada = entradaDao.findById(entradaId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrada no encontrada"));
-            Long current = entrada.getEspectaculo().getId();
-            if (espectaculoId == null) {
-                espectaculoId = current;
-            } else if (!espectaculoId.equals(current)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Todas las entradas deben ser del mismo espectaculo");
+
+            if (entrada.getEspectaculo() == null || entrada.getEspectaculo().getId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Entrada sin espectaculo asociado");
             }
+
+            espectaculoIds.add(entrada.getEspectaculo().getId());
         }
-        assertAccess(espectaculoId, sesionId, accessToken);
+
+        for (Long espectaculoId : espectaculoIds) {
+            assertAccess(espectaculoId, sesionId, accessToken);
+        }
     }
 
     @Scheduled(fixedDelay = 10000)
